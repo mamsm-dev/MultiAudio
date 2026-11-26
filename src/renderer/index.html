@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
+  <title>MultiAudio</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <img src="icon.png" alt="" width="36" height="36">
+    <h1 dir="ltr">MultiAudio</h1>
+    <button id="lang" class="ghost"></button>
+    <button id="theme" class="ghost"></button>
+  </header>
+
+  <section class="bar">
+    <label><input type="checkbox" id="showAll"> <span data-t="showAll"></span></label>
+    <button id="refresh" class="ghost" data-t="refresh"></button>
+  </section>
+
+  <p id="note" class="note" hidden></p>
+  <main id="devices"></main>
+
+  <footer>
+    <p id="status" role="status"></p>
+    <button id="toggle" class="primary"></button>
+  </footer>
+
+  <script src="i18n.js"></script>
+  <script src="mirror.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

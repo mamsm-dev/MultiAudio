@@ -1,0 +1,50 @@
+{
+  "name": "multiaudio",
+  "productName": "MultiAudio",
+  "version": "1.0.0",
+  "description": "Play audio through several Bluetooth devices at once",
+  "main": "src/main/main.js",
+  "homepage": "https://github.com/mamsm-dev/multiaudio",
+  "author": { "name": "mamsm-dev", "email": "mamsm-dev@users.noreply.github.com" },
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "dist:linux": "electron-builder --linux --publish never",
+    "dist:win": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "io.github.mamsmdev.multiaudio",
+    "productName": "MultiAudio",
+    "files": ["src/**/*", "package.json"],
+    "directories": { "output": "dist", "buildResources": "build" },
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "linux": {
+      "target": ["AppImage", "deb", "rpm", "pacman"],
+      "category": "AudioVideo",
+      "executableName": "multiaudio",
+      "icon": "build/icon.png"
+    },
+    "deb": {
+      "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1", "libsecret-1-0", "pulseaudio-utils"]
+    },
+    "rpm": {
+      "depends": ["gtk3", "libnotify", "nss", "libXScrnSaver", "libXtst", "xdg-utils", "at-spi2-core", "libuuid", "pulseaudio-utils"]
+    },
+    "pacman": {
+      "depends": ["gtk3", "nss", "libxss", "libxtst", "libnotify", "xdg-utils", "alsa-lib", "libpulse"],
+      "artifactName": "${productName}-${version}-${arch}.pkg.tar.zst",
+      "compression": "zstd"
+    },
+    "win": { "target": ["nsis", "msi"], "icon": "build/icon.png" },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    }
+  }
+}
