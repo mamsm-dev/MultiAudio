@@ -5,6 +5,7 @@ const call = (channel) => (...args) => ipcRenderer.invoke(channel, ...args);
 
 contextBridge.exposeInMainWorld('api', {
   platform: call('platform'),
+  accent: call('accent'),
   version: call('version'),
   checkUpdate: call('check-update'),
   open: call('open'),

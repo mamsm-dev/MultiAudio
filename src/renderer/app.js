@@ -269,6 +269,28 @@
     });
   }
 
+  // Follow the system accent colour; the stylesheet colour is the fallback.
+  async function applyAccent() {
+    const color = await window.api.accent().catch(() => null);
+    const root = document.documentElement.style;
+    if (!color) {
+      root.removeProperty('--primary');
+      root.removeProperty('--on-primary');
+      return;
+    }
+    // Pick black or white text, whichever contrasts more with the accent.
+    const [r, g, b] = [1, 3, 5].map((i) => {
+      const c = parseInt(color.slice(i, i + 2), 16) / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    root.setProperty('--primary', color);
+    root.setProperty('--on-primary', 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.179 ? '#000' : '#fff');
+  }
+  applyAccent();
+  // Picks up changes made while the app is open.
+  window.addEventListener('focus', applyAccent);
+  setInterval(applyAccent, 5000);
+
   $('github').addEventListener('click', () => window.api.open('repo'));
   $('download').addEventListener('click', () => window.api.open('releases'));
   $('version').textContent = `v${await window.api.version()}`;
