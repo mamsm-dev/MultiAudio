@@ -29,6 +29,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: test "$GITHUB_REF_NAME" = "v$(node -p "require('./package.json').version")"
         shell: bash
+      - name: Check that CHANGELOG.md describes this release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: sh scripts/release-notes.sh "$GITHUB_REF_NAME"
+        shell: bash
       - run: npm install
       - run: npm test
         shell: bash
@@ -52,10 +56,12 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
-      - run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --generate-notes
+      - run: sh scripts/release-notes.sh "$GITHUB_REF_NAME" > notes.md
+      - run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --notes-file notes.md
         env:
           GH_TOKEN: ${{ github.token }}
