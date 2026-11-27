@@ -23,13 +23,13 @@ window.Mirror = (() => {
       stream.getVideoTracks().forEach((t) => t.stop());
       if (!stream.getAudioTracks().length) throw new Error('NO_AUDIO');
       const audioOnly = new MediaStream(stream.getAudioTracks());
-      for (const { id, volume, delay } of targets) {
+      for (const { id, volume, delay, muted } of targets) {
         const context = new AudioContext({ latencyHint: 'interactive' });
-        const nodes = { context, delay: context.createDelay(1), gain: context.createGain() };
+        const nodes = { context, delay: context.createDelay(1), gain: context.createGain(), volume, muted };
         outputs.set(id, nodes);
         await context.setSinkId(id);
         nodes.delay.delayTime.value = delay / 1000;
-        nodes.gain.gain.value = volume / 100;
+        nodes.gain.gain.value = muted ? 0 : volume / 100;
         context.createMediaStreamSource(audioOnly).connect(nodes.delay).connect(nodes.gain).connect(context.destination);
         await context.resume();
       }
@@ -42,8 +42,12 @@ window.Mirror = (() => {
   function set(id, key, value) {
     const o = outputs.get(id);
     if (!o) return;
-    if (key === 'volume') o.gain.gain.value = value / 100;
-    else o.delay.delayTime.value = value / 1000;
+    if (key === 'delay') {
+      o.delay.delayTime.value = value / 1000;
+      return;
+    }
+    o[key] = value; // volume or muted
+    o.gain.gain.value = o.muted ? 0 : o.volume / 100;
   }
 
   return { start, stop, set };

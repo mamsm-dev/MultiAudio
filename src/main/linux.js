@@ -47,6 +47,7 @@ function createBackend(run = defaultRun) {
         name: s.description || s.name,
         bluetooth: isBluetooth(s),
         volume: volumeOf(s),
+        muted: !!s.mute,
       }));
   }
 
@@ -102,9 +103,14 @@ function createBackend(run = defaultRun) {
     await run(['set-sink-volume', id, `${value}%`]);
   }
 
+  async function setMute(id, muted) {
+    if (!(await list()).some((s) => s.id === id)) return;
+    await run(['set-sink-mute', id, muted ? '1' : '0']);
+  }
+
   const active = async () => (await modules()).length > 0;
 
-  return { list, start, stop, setVolume, active };
+  return { list, start, stop, setVolume, setMute, active };
 }
 
 module.exports = { createBackend, ourModules, isBluetooth };

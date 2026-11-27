@@ -58,3 +58,11 @@ test('start needs two known devices', async () => {
 test('only our own module is matched', () => {
   assert.deepStrictEqual(ourModules('1\tmodule-combine-sink\tsink_name=other\n2\tmodule-combine-sink\tsink_name=multiaudio'), ['2']);
 });
+
+test('mutes only known devices', async () => {
+  const pa = fakePactl();
+  const backend = createBackend(pa.run);
+  await backend.setMute('bluez_output.AA.1', true);
+  await backend.setMute('nope', true);
+  assert.deepStrictEqual(pa.calls.filter((c) => c.startsWith('set-sink-mute')), ['set-sink-mute bluez_output.AA.1 1']);
+});

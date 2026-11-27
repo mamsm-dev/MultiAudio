@@ -48,6 +48,7 @@ function registerIpc() {
     ipcMain.handle('list', () => serial(async () => ({ devices: await linux.list(), active: await linux.active() })));
     ipcMain.handle('start', (_e, ids) => serial(() => linux.start(ids)));
     ipcMain.handle('stop', () => serial(() => linux.stop()));
+    ipcMain.handle('mute', (_e, id, muted) => serial(() => linux.setMute(id, muted)));
     ipcMain.handle('volume', (_e, id, value) => serial(() => linux.setVolume(id, value)));
   } else {
     ipcMain.handle('bluetooth-names', () => bluetoothNames());

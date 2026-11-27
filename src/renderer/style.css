@@ -1,3 +1,8 @@
+@font-face {
+  font-family: Vazirmatn;
+  src: url("fonts/Vazirmatn.woff2") format("woff2");
+  font-weight: 100 900;
+}
 :root {
   --primary: #18B0B0;
   --bg: #f3f7f7; --card: #ffffff; --text: #122424; --muted: #5b7171; --border: #d8e5e5;
@@ -12,7 +17,7 @@
 body {
   margin: 0; height: 100vh; display: flex; flex-direction: column; gap: 12px; padding: 18px;
   background: var(--bg); color: var(--text);
-  font: 14px/1.6 Vazirmatn, "Segoe UI", "Noto Sans Arabic", Tahoma, sans-serif;
+  font: 14px/1.6 Vazirmatn, sans-serif;
 }
 header { display: flex; align-items: center; gap: 10px; }
 h1 { margin: 0; font-size: 20px; margin-inline-end: auto; }
@@ -33,7 +38,8 @@ input { accent-color: var(--primary); }
 main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .device { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; flex-shrink: 0; }
 .device.selected { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
-.device .head { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.device .top { display: flex; align-items: center; gap: 10px; }
+.device .head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .device .head input { width: 18px; height: 18px; }
 .device .name { flex: 1; font-weight: 600; overflow-wrap: anywhere; }
 .badge { font-size: 11px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--primary); color: var(--primary); }
@@ -50,3 +56,17 @@ footer p.on { color: var(--primary); }
 .update { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .about { display: flex; align-items: center; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 12px; }
 .about .icon { margin-inline-start: auto; display: flex; padding: 6px; }
+
+header .icon { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; }
+.mute { display: flex; padding: 4px 6px; }
+.mute[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #04201f; }
+.device.muted .slider input { opacity: .45; }
+
+/* Light mode: white track with a green border */
+:root[data-theme="light"] input[type="range"] { appearance: none; background: transparent; height: 18px; margin: 0; }
+:root[data-theme="light"] input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px; background: #fff; border: 1px solid var(--primary); border-radius: 99px;
+}
+:root[data-theme="light"] input[type="range"]::-webkit-slider-thumb {
+  appearance: none; width: 16px; height: 16px; margin-top: -5px; border: 0; border-radius: 50%; background: var(--primary);
+}

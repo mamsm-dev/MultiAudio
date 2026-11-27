@@ -12,5 +12,6 @@ contextBridge.exposeInMainWorld('api', {
   start: call('start'),
   stop: call('stop'),
   volume: call('volume'),
+  mute: call('mute'),
   bluetoothNames: call('bluetooth-names'),
 });

@@ -37,6 +37,7 @@
           isDefault: !!fallback && fallback.groupId === d.groupId && fallback.label.endsWith(label),
           volume: state.settings[d.deviceId]?.volume ?? 100,
           delay: state.settings[d.deviceId]?.delay ?? 0,
+          muted: state.settings[d.deviceId]?.muted ?? false,
         };
       });
   }
@@ -49,6 +50,39 @@
 
   // Persian puts the sign after the number in reading order.
   const amount = (value, unit) => (unit === '%' ? `${value}${t('percent')}` : `${value} ${unit}`);
+
+  function remember(device) {
+    const { volume, delay, muted } = device;
+    state.settings[device.id] = { volume, delay, muted };
+    save('settings', state.settings);
+  }
+
+  function muteButton(device) {
+    const button = document.createElement('button');
+    button.className = 'mute';
+    const label = t(device.muted ? 'unmute' : 'mute');
+    button.title = label;
+    button.setAttribute('aria-label', `${label} ${device.name}`);
+    button.setAttribute('aria-pressed', String(device.muted));
+    button.innerHTML = window.ICONS[device.muted ? 'muted' : 'sound'];
+    button.addEventListener('click', async () => {
+      const muted = !device.muted;
+      try {
+        if (isWindows) {
+          device.muted = muted;
+          remember(device);
+          window.Mirror.set(device.id, 'muted', muted);
+        } else {
+          await window.api.mute(device.id, muted);
+          device.muted = muted;
+        }
+        render();
+      } catch (err) {
+        showError(err);
+      }
+    });
+    return button;
+  }
 
   function slider(device, key, label, max, unit) {
     const row = document.createElement('div');
@@ -65,8 +99,7 @@
       device[key] = Number(input.value);
       out.textContent = amount(input.value, unit);
       if (!isWindows) return;
-      state.settings[device.id] = { volume: device.volume, delay: device.delay };
-      save('settings', state.settings);
+      remember(device);
       window.Mirror.set(device.id, key, device[key]);
     });
     if (!isWindows) input.addEventListener('change', () => window.api.volume(device.id, device[key]).catch(showError));
@@ -76,7 +109,7 @@
 
   function card(device) {
     const el = document.createElement('div');
-    el.className = 'device' + (isOn(device) ? ' selected' : '');
+    el.className = 'device' + (isOn(device) ? ' selected' : '') + (device.muted && !device.isDefault ? ' muted' : '');
     const head = document.createElement('label');
     head.className = 'head';
     const box = document.createElement('input');
@@ -102,7 +135,12 @@
       badge.textContent = text;
       head.append(badge);
     }
-    el.append(head);
+    // Outside the label, so pressing it does not toggle the checkbox.
+    const top = document.createElement('div');
+    top.className = 'top';
+    top.append(head);
+    if (!device.isDefault) top.append(muteButton(device));
+    el.append(top);
     // The default output on Windows is controlled by Windows itself.
     if (!device.isDefault) {
       el.append(slider(device, 'volume', t('volume'), 100, '%'));
@@ -126,7 +164,10 @@
     document.documentElement.dataset.theme = state.theme;
     document.querySelectorAll('[data-t]').forEach((n) => { n.textContent = t(n.dataset.t); });
     $('lang').textContent = t('other');
-    $('theme').textContent = state.theme === 'dark' ? `☀ ${t('light')}` : `☾ ${t('dark')}`;
+    const dark = state.theme === 'dark';
+    $('theme').innerHTML = window.ICONS[dark ? 'sun' : 'moon'];
+    $('theme').title = t(dark ? 'light' : 'dark');
+    $('theme').setAttribute('aria-label', $('theme').title);
     $('note').hidden = !isWindows;
     $('note').textContent = t('winNote');
     const list = visible();
@@ -161,7 +202,7 @@
       let active = state.active;
       if (isWindows) devices = await windowsDevices();
       else ({ devices, active } = await window.api.list());
-      const next = JSON.stringify([active, devices.map((d) => [d.id, d.name, d.volume, d.isDefault, d.bluetooth])]);
+      const next = JSON.stringify([active, devices.map((d) => [d.id, d.name, d.volume, d.muted, d.isDefault, d.bluetooth])]);
       state.devices = devices;
       state.active = active;
       // Redraw only on real changes, so sliders are not interrupted.

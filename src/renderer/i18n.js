@@ -3,7 +3,7 @@ window.I18N = {
   fa: {
     showAll: 'نمایش همه خروجی‌ها', refresh: 'بازخوانی', start: 'شروع پخش همزمان', stop: 'توقف',
     dark: 'تیره', light: 'روشن', other: 'English', volume: 'صدا', delay: 'تأخیر', ms: 'ms', percent: '٪',
-    developer: 'توسعه‌دهنده:', download: 'دانلود', update: 'نسخه جدید {v} منتشر شده است.',
+    developer: 'توسعه‌دهنده:', mute: 'بی‌صدا کردن', unmute: 'وصل کردن صدا', download: 'دانلود', update: 'نسخه جدید {v} منتشر شده است.',
     empty: 'دستگاه بلوتوثی پیدا نشد. دستگاه را وصل کنید و «بازخوانی» را بزنید.',
     pick: 'حداقل دو دستگاه را انتخاب کنید.', ready: 'آماده پخش', playing: 'در حال پخش همزمان',
     defaultOut: 'خروجی پیش‌فرض ویندوز',
@@ -16,7 +16,7 @@ window.I18N = {
   en: {
     showAll: 'Show all outputs', refresh: 'Refresh', start: 'Start playing on all', stop: 'Stop',
     dark: 'Dark', light: 'Light', other: 'فارسی', volume: 'Volume', delay: 'Delay', ms: 'ms', percent: '%',
-    developer: 'Developer:', download: 'Download', update: 'Version {v} is available.',
+    developer: 'Developer:', mute: 'Mute', unmute: 'Unmute', download: 'Download', update: 'Version {v} is available.',
     empty: 'No Bluetooth device found. Connect one, then press Refresh.',
     pick: 'Select at least two devices.', ready: 'Ready', playing: 'Playing on all selected devices',
     defaultOut: 'Windows default output',
