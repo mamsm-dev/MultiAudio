@@ -40,8 +40,13 @@ main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8p
 .slider { display: flex; align-items: center; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 12px; }
 .slider span:first-child { width: 70px; }
 .slider input { flex: 1; }
-.slider output { width: 60px; text-align: end; }
+.slider output { width: 60px; text-align: left; }
+:root[dir="ltr"] .slider output { text-align: right; }
 .empty { margin: auto; text-align: center; color: var(--muted); max-width: 300px; }
 footer p { margin: 0 0 8px; min-height: 22px; text-align: center; color: var(--muted); }
 footer p.error { color: #e5484d; }
 footer p.on { color: var(--primary); }
+
+.update { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.about { display: flex; align-items: center; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 12px; }
+.about .icon { margin-inline-start: auto; display: flex; padding: 6px; }

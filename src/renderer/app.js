@@ -17,6 +17,7 @@
     busy: false,
     error: null,
     btNames: [],
+    update: null,
   };
   const isWindows = state.platform === 'win32';
   const t = (key) => window.I18N[state.lang][key];
@@ -46,6 +47,9 @@
   const chosen = () => visible().filter(isOn);
   const canStart = () => chosen().length >= 2;
 
+  // Persian puts the sign after the number in reading order.
+  const amount = (value, unit) => (unit === '%' ? `${value}${t('percent')}` : `${value} ${unit}`);
+
   function slider(device, key, label, max, unit) {
     const row = document.createElement('div');
     row.className = 'slider';
@@ -55,10 +59,11 @@
     Object.assign(input, { type: 'range', min: 0, max, value: device[key] });
     input.setAttribute('aria-label', `${label} ${device.name}`);
     const out = document.createElement('output');
-    out.textContent = `${device[key]} ${unit}`;
+    out.dir = 'auto';
+    out.textContent = amount(device[key], unit);
     input.addEventListener('input', () => {
       device[key] = Number(input.value);
-      out.textContent = `${input.value} ${unit}`;
+      out.textContent = amount(input.value, unit);
       if (!isWindows) return;
       state.settings[device.id] = { volume: device.volume, delay: device.delay };
       save('settings', state.settings);
@@ -86,8 +91,9 @@
     });
     const name = document.createElement('span');
     name.className = 'name';
-    name.dir = 'auto';
-    name.textContent = device.name;
+    const text = document.createElement('bdi');
+    text.textContent = device.name;
+    name.append(text);
     head.append(box, name);
     for (const [show, text] of [[device.bluetooth, 'Bluetooth'], [device.isDefault, t('defaultOut')]]) {
       if (!show) continue;
@@ -132,7 +138,13 @@
       empty.textContent = t('empty');
       $('devices').replaceChildren(empty);
     }
+    renderUpdate();
     renderControls();
+  }
+
+  function renderUpdate() {
+    $('update').hidden = !state.update;
+    if (state.update) $('updateText').textContent = t('update').replace('{v}', state.update);
   }
 
   function showError(err) {
@@ -215,6 +227,15 @@
       if (wasActive) showError(new Error('CHANGED'));
     });
   }
+
+  $('github').addEventListener('click', () => window.api.open('repo'));
+  $('download').addEventListener('click', () => window.api.open('releases'));
+  $('version').textContent = `v${await window.api.version()}`;
+  // Not awaited, so a slow network never delays the device list.
+  window.api.checkUpdate().then((version) => {
+    state.update = version;
+    renderUpdate();
+  });
 
   render();
   await rescan();

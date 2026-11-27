@@ -1,8 +1,9 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, session, desktopCapturer, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, session, desktopCapturer, Menu, net, shell } = require('electron');
 const path = require('node:path');
 const { createBackend } = require('./linux');
 const { bluetoothNames } = require('./windows');
+const { checkForUpdate, REPO_URL, RELEASES_URL } = require('./update');
 
 const linux = process.platform === 'linux' ? createBackend() : null;
 let win = null;
@@ -39,6 +40,10 @@ function createWindow() {
 
 function registerIpc() {
   ipcMain.handle('platform', () => process.platform);
+  ipcMain.handle('version', () => app.getVersion());
+  ipcMain.handle('check-update', () => (net.isOnline() ? checkForUpdate(app.getVersion(), net.fetch) : null));
+  // Only these two fixed addresses can be opened.
+  ipcMain.handle('open', (_e, page) => shell.openExternal(page === 'releases' ? RELEASES_URL : REPO_URL));
   if (linux) {
     ipcMain.handle('list', () => serial(async () => ({ devices: await linux.list(), active: await linux.active() })));
     ipcMain.handle('start', (_e, ids) => serial(() => linux.start(ids)));
