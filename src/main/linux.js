@@ -16,7 +16,7 @@ function defaultRun(args) {
   });
 }
 
-const MAX_DELAY = 5;
+const MAX_DELAY = 10;
 
 // One delayed copy of our sink's audio per device. dont-reconnect stops a loopback from
 // falling back to the default output (our own sink) when its device disappears.

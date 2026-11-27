@@ -50,7 +50,10 @@
 
   // Persian puts the percent sign after the number in reading order.
   const percent = (value) => `${value}${t('percent')}`;
-  const MAX_DELAY = 5;
+  const MAX_DELAY = 10;
+  // Redrawing replaces the controls, so it waits while one is being dragged or typed in.
+  let dragging = false;
+  const editing = () => dragging || document.activeElement?.classList.contains('delay-input');
   const delayOf = (id) => ({ on: false, seconds: 0, ...state.delays[id] });
   const effectiveDelay = (id) => (delayOf(id).on ? delayOf(id).seconds : 0);
   const delaysFor = (devices) => Object.fromEntries(devices.map((d) => [d.id, effectiveDelay(d.id)]));
@@ -108,6 +111,21 @@
     return el;
   }
 
+  // Live volume on Linux: one request at a time, always finishing with the newest value.
+  const wanted = new Map();
+  let sending = false;
+  async function sendVolume(id, value) {
+    wanted.set(id, value);
+    if (sending) return;
+    sending = true;
+    while (wanted.size) {
+      const [next, volume] = wanted.entries().next().value;
+      wanted.delete(next);
+      await window.api.volume(next, volume).catch(showError);
+    }
+    sending = false;
+  }
+
   function volumeRow(device) {
     const name = document.createElement('span');
     name.textContent = t('volume');
@@ -118,11 +136,13 @@
     input.addEventListener('input', () => {
       device.volume = Number(input.value);
       out.textContent = percent(input.value);
-      if (!isWindows) return;
+      if (!isWindows) {
+        sendVolume(device.id, device.volume);
+        return;
+      }
       remember(device);
       window.Mirror.set(device.id, 'volume', device.volume);
     });
-    if (!isWindows) input.addEventListener('change', () => window.api.volume(device.id, device.volume).catch(showError));
     return row(name, input, out);
   }
 
@@ -148,6 +168,15 @@
     if (failure) showError(failure);
   }
 
+  // Accepts Persian and Arabic digits and decimal separators as well as Latin ones.
+  const parseSeconds = (text) => {
+    const latin = text.trim()
+      .replace(/[۰-۹٠-٩]/g, (c) => String(c.charCodeAt(0) & 0xf))
+      .replace(/[٫,\/]/g, '.');
+    const value = Number(latin);
+    return Number.isFinite(value) ? Math.round(Math.max(0, Math.min(MAX_DELAY, value)) * 100) / 100 : null;
+  };
+
   function delayRow(device) {
     const current = delayOf(device.id);
     const toggleLabel = document.createElement('label');
@@ -156,28 +185,38 @@
     box.checked = current.on;
     box.disabled = state.busy;
     toggleLabel.append(box, ` ${t('delay')}`);
-    const input = range(current.seconds, MAX_DELAY, 0.05, `${t('delay')} ${device.name}`);
+
+    const input = document.createElement('input');
+    Object.assign(input, { type: 'text', inputMode: 'decimal', className: 'delay-input', dir: 'ltr', value: String(current.seconds) });
+    input.setAttribute('aria-label', `${t('delay')} (${t('seconds')}) ${device.name}`);
     input.disabled = !current.on || state.busy;
-    const out = document.createElement('output');
-    out.dir = 'auto';
-    const show = (seconds) => { out.textContent = `${Number(seconds).toFixed(2)} ${t('seconds')}`; };
-    show(current.seconds);
-    const store = () => {
-      state.delays[device.id] = { on: box.checked, seconds: Number(input.value) };
+
+    const unit = document.createElement('span');
+    unit.textContent = `${t('seconds')} (0–${MAX_DELAY})`;
+
+    const store = (seconds) => {
+      state.delays[device.id] = { on: box.checked, seconds };
       save('delays', state.delays);
     };
     box.addEventListener('change', () => {
-      store();
+      const { seconds } = delayOf(device.id);
+      store(seconds);
       input.disabled = !box.checked;
-      if (current.seconds > 0 || Number(input.value) > 0) applyDelay(device);
+      if (seconds > 0) applyDelay(device);
     });
-    input.addEventListener('input', () => {
-      show(input.value);
-      store();
-      if (isWindows) window.Mirror.set(device.id, 'delay', effectiveDelay(device.id));
+    // Applied on Enter or when the field loses focus.
+    input.addEventListener('change', () => {
+      const previous = delayOf(device.id).seconds;
+      const seconds = parseSeconds(input.value) ?? previous;
+      input.value = String(seconds);
+      if (seconds === previous) return;
+      store(seconds);
+      applyDelay(device);
     });
-    if (!isWindows) input.addEventListener('change', () => applyDelay(device));
-    return row(toggleLabel, input, out);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') input.blur();
+    });
+    return row(toggleLabel, input, unit);
   }
 
   function card(device) {
@@ -268,12 +307,14 @@
 
   let signature = '';
   async function refresh(force = false) {
-    if (state.busy) return;
+    if (state.busy || (!force && editing())) return;
     try {
       let devices;
       let active = state.active;
       if (isWindows) devices = await windowsDevices();
       else ({ devices, active } = await window.api.list());
+      // A drag or typing may have started while the list was loading.
+      if (!force && editing()) return;
       const next = JSON.stringify([active, devices.map((d) => [d.id, d.name, d.volume, d.muted, d.isDefault, d.bluetooth])]);
       state.devices = devices;
       state.active = active;
@@ -310,6 +351,12 @@
     }
   }
 
+  $('devices').addEventListener('pointerdown', (e) => {
+    if (e.target.type === 'range') dragging = true;
+  });
+  for (const type of ['pointerup', 'pointercancel', 'blur']) {
+    window.addEventListener(type, () => { dragging = false; });
+  }
   $('toggle').addEventListener('click', toggle);
   $('showAll').checked = read('showAll', false);
   $('showAll').addEventListener('change', () => { save('showAll', $('showAll').checked); render(); });

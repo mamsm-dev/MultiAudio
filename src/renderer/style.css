@@ -49,6 +49,11 @@ main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8p
 .slider input:disabled { opacity: .45; }
 .slider label { width: 70px; display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .slider label input { margin: 0; }
+.delay-input {
+  width: 80px; font: inherit; text-align: center; padding: 2px 8px;
+  background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+}
+.delay-input:focus { border-color: var(--primary); }
 .slider output { width: 60px; text-align: left; }
 :root[dir="ltr"] .slider output { text-align: right; }
 .empty { margin: auto; text-align: center; color: var(--muted); max-width: 300px; }
