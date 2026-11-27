@@ -1,6 +1,6 @@
 'use strict';
 // Linux backend: drives PulseAudio / PipeWire (pipewire-pulse) through pactl.
-const { execFile } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 
 const SINK = 'multiaudio';
 
@@ -13,6 +13,24 @@ function defaultRun(args) {
       if (err.code === 'ENOENT') return reject(new Error('PACTL_MISSING'));
       reject(new Error(stderr.trim() || err.message));
     });
+  });
+}
+
+const MAX_DELAY = 5;
+
+// One delayed copy of our sink's audio per device. dont-reconnect stops a loopback from
+// falling back to the default output (our own sink) when its device disappears.
+const loopbackArgs = (device, seconds) => [
+  '--name', `${SINK}-loop`, '--delay', String(seconds),
+  '--capture', SINK, '--capture-props', '{ stream.capture.sink = true node.dont-reconnect = true }',
+  '--playback', device, '--playback-props', '{ node.dont-reconnect = true }',
+];
+
+function defaultLoopback(args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('pw-loopback', args, { stdio: 'ignore' });
+    child.once('spawn', () => resolve(() => child.kill()));
+    child.on('error', (err) => reject(err.code === 'ENOENT' ? new Error('DELAY_UNSUPPORTED') : err));
   });
 }
 
@@ -29,11 +47,17 @@ const ourModules = (text) =>
   text.split('\n')
     .map((line) => line.split('\t'))
     .filter(([, name, args]) =>
-      name === 'module-combine-sink' && (args || '').split(/\s+/).includes(`sink_name=${SINK}`))
+      ['module-combine-sink', 'module-null-sink'].includes(name) && (args || '').split(/\s+/).includes(`sink_name=${SINK}`))
     .map(([id]) => id);
 
-function createBackend(run = defaultRun) {
+function createBackend(run = defaultRun, loopback = defaultLoopback) {
   let previousDefault = null;
+  let loops = []; // functions that end the running pw-loopback processes
+
+  const stopLoops = () => {
+    loops.forEach((kill) => kill());
+    loops = [];
+  };
 
   const json = async (what) => JSON.parse(await run(['--format=json', 'list', what]));
   const modules = async () => ourModules(await run(['list', 'short', 'modules']));
@@ -62,6 +86,7 @@ function createBackend(run = defaultRun) {
     Promise.all(ids.map((id) => run(['move-sink-input', String(id), sinkName]).catch(() => {})));
 
   async function stop() {
+    stopLoops();
     const ids = await modules();
     if (!ids.length) return;
     const sinks = await list();
@@ -75,7 +100,8 @@ function createBackend(run = defaultRun) {
     previousDefault = null;
   }
 
-  async function start(selected) {
+  // delays: { sinkName: seconds }. Without any delay the simpler combined sink is used.
+  async function start(selected, delays = {}) {
     const known = new Set((await list()).map((s) => s.id));
     const targets = [...new Set(selected)].filter((id) => known.has(id) && !/[,\s]/.test(id));
     if (targets.length < 2) throw new Error('NEED_TWO');
@@ -86,9 +112,16 @@ function createBackend(run = defaultRun) {
     // Collected before loading, so the combine module's own streams are never moved.
     const playing = (await json('sink-inputs')).map((i) => i.index);
 
-    await run(['load-module', 'module-combine-sink', `sink_name=${SINK}`,
-      `slaves=${targets.join(',')}`, 'sink_properties=device.description=MultiAudio']);
+    const seconds = (id) => Math.max(0, Math.min(MAX_DELAY, Number(delays[id]) || 0));
+    const delayed = targets.some((id) => seconds(id) > 0);
+    const description = 'sink_properties=device.description=MultiAudio';
+    await run(delayed
+      ? ['load-module', 'module-null-sink', `sink_name=${SINK}`, description]
+      : ['load-module', 'module-combine-sink', `sink_name=${SINK}`, `slaves=${targets.join(',')}`, description]);
     try {
+      if (delayed) {
+        for (const id of targets) loops.push(await loopback(loopbackArgs(id, seconds(id))));
+      }
       await run(['set-default-sink', SINK]);
     } catch (err) {
       await stop();

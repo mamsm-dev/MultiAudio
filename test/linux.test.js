@@ -66,3 +66,26 @@ test('mutes only known devices', async () => {
   await backend.setMute('nope', true);
   assert.deepStrictEqual(pa.calls.filter((c) => c.startsWith('set-sink-mute')), ['set-sink-mute bluez_output.AA.1 1']);
 });
+
+test('a delay uses a null sink with one loopback per device, ended on stop', async () => {
+  const pa = fakePactl();
+  const running = [];
+  const backend = createBackend(pa.run, async (args) => {
+    running.push(args);
+    return () => running.splice(running.indexOf(args), 1);
+  });
+  await backend.start(['bluez_output.AA.1', 'bluez_output.BB.1'], { 'bluez_output.BB.1': 1.5 });
+  assert.ok(pa.calls.some((c) => c.startsWith('load-module module-null-sink')));
+  assert.deepStrictEqual(running.map((a) => a[a.indexOf('--delay') + 1]), ['0', '1.5']);
+  await backend.stop();
+  assert.strictEqual(running.length, 0);
+  assert.strictEqual(pa.def, 'alsa_output.pci');
+});
+
+test('a missing pw-loopback leaves the previous output in place', async () => {
+  const pa = fakePactl();
+  const backend = createBackend(pa.run, async () => { throw new Error('DELAY_UNSUPPORTED'); });
+  await assert.rejects(backend.start(['bluez_output.AA.1', 'bluez_output.BB.1'], { 'bluez_output.AA.1': 1 }), /DELAY_UNSUPPORTED/);
+  assert.strictEqual(pa.def, 'alsa_output.pci');
+  assert.strictEqual(await backend.active(), false);
+});

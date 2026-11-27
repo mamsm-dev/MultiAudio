@@ -11,7 +11,8 @@
     lang: read('lang', 'fa'),
     theme: read('theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
     selected: new Set(read('selected', [])),
-    settings: read('settings', {}), // Windows volume and delay per device
+    settings: read('settings', {}), // Windows volume and mute per device
+    delays: read('delays', {}), // { id: { on, seconds } }
     devices: [],
     active: false,
     busy: false,
@@ -36,7 +37,6 @@
           bluetooth: /bluetooth/i.test(label) || state.btNames.some((n) => label.includes(n)),
           isDefault: !!fallback && fallback.groupId === d.groupId && fallback.label.endsWith(label),
           volume: state.settings[d.deviceId]?.volume ?? 100,
-          delay: state.settings[d.deviceId]?.delay ?? 0,
           muted: state.settings[d.deviceId]?.muted ?? false,
         };
       });
@@ -48,12 +48,16 @@
   const chosen = () => visible().filter(isOn);
   const canStart = () => chosen().length >= 2;
 
-  // Persian puts the sign after the number in reading order.
-  const amount = (value, unit) => (unit === '%' ? `${value}${t('percent')}` : `${value} ${unit}`);
+  // Persian puts the percent sign after the number in reading order.
+  const percent = (value) => `${value}${t('percent')}`;
+  const MAX_DELAY = 5;
+  const delayOf = (id) => ({ on: false, seconds: 0, ...state.delays[id] });
+  const effectiveDelay = (id) => (delayOf(id).on ? delayOf(id).seconds : 0);
+  const delaysFor = (devices) => Object.fromEntries(devices.map((d) => [d.id, effectiveDelay(d.id)]));
 
   function remember(device) {
-    const { volume, delay, muted } = device;
-    state.settings[device.id] = { volume, delay, muted };
+    const { volume, muted } = device;
+    state.settings[device.id] = { volume, muted };
     save('settings', state.settings);
   }
 
@@ -84,27 +88,96 @@
     return button;
   }
 
-  function slider(device, key, label, max, unit) {
-    const row = document.createElement('div');
-    row.className = 'slider';
-    const name = document.createElement('span');
-    name.textContent = label;
+  // --fill lets the light theme colour the part of the track before the thumb.
+  const paint = (input) => input.style.setProperty('--fill', `${(input.value / input.max) * 100}%`);
+
+  function range(value, max, step, label) {
     const input = document.createElement('input');
-    Object.assign(input, { type: 'range', min: 0, max, value: device[key] });
-    input.setAttribute('aria-label', `${label} ${device.name}`);
+    Object.assign(input, { type: 'range', min: 0, max, step });
+    input.value = value;
+    input.setAttribute('aria-label', label);
+    input.addEventListener('input', () => paint(input));
+    paint(input);
+    return input;
+  }
+
+  function row(...children) {
+    const el = document.createElement('div');
+    el.className = 'slider';
+    el.append(...children);
+    return el;
+  }
+
+  function volumeRow(device) {
+    const name = document.createElement('span');
+    name.textContent = t('volume');
+    const input = range(device.volume, 100, 1, `${t('volume')} ${device.name}`);
     const out = document.createElement('output');
     out.dir = 'auto';
-    out.textContent = amount(device[key], unit);
+    out.textContent = percent(device.volume);
     input.addEventListener('input', () => {
-      device[key] = Number(input.value);
-      out.textContent = amount(input.value, unit);
+      device.volume = Number(input.value);
+      out.textContent = percent(input.value);
       if (!isWindows) return;
       remember(device);
-      window.Mirror.set(device.id, key, device[key]);
+      window.Mirror.set(device.id, 'volume', device.volume);
     });
-    if (!isWindows) input.addEventListener('change', () => window.api.volume(device.id, device[key]).catch(showError));
-    row.append(name, input, out);
-    return row;
+    if (!isWindows) input.addEventListener('change', () => window.api.volume(device.id, device.volume).catch(showError));
+    return row(name, input, out);
+  }
+
+  // Linux has to rebuild the audio route to change a delay.
+  async function applyDelay(device) {
+    if (isWindows) {
+      window.Mirror.set(device.id, 'delay', effectiveDelay(device.id));
+      return;
+    }
+    if (!state.active || !state.selected.has(device.id)) return;
+    state.busy = true;
+    state.error = null;
+    render();
+    let failure = null;
+    try {
+      const targets = chosen();
+      await window.api.start(targets.map((d) => d.id), delaysFor(targets));
+    } catch (err) {
+      failure = err;
+    }
+    state.busy = false;
+    await refresh(true);
+    if (failure) showError(failure);
+  }
+
+  function delayRow(device) {
+    const current = delayOf(device.id);
+    const toggleLabel = document.createElement('label');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = current.on;
+    box.disabled = state.busy;
+    toggleLabel.append(box, ` ${t('delay')}`);
+    const input = range(current.seconds, MAX_DELAY, 0.05, `${t('delay')} ${device.name}`);
+    input.disabled = !current.on || state.busy;
+    const out = document.createElement('output');
+    out.dir = 'auto';
+    const show = (seconds) => { out.textContent = `${Number(seconds).toFixed(2)} ${t('seconds')}`; };
+    show(current.seconds);
+    const store = () => {
+      state.delays[device.id] = { on: box.checked, seconds: Number(input.value) };
+      save('delays', state.delays);
+    };
+    box.addEventListener('change', () => {
+      store();
+      input.disabled = !box.checked;
+      if (current.seconds > 0 || Number(input.value) > 0) applyDelay(device);
+    });
+    input.addEventListener('input', () => {
+      show(input.value);
+      store();
+      if (isWindows) window.Mirror.set(device.id, 'delay', effectiveDelay(device.id));
+    });
+    if (!isWindows) input.addEventListener('change', () => applyDelay(device));
+    return row(toggleLabel, input, out);
   }
 
   function card(device) {
@@ -143,8 +216,7 @@
     el.append(top);
     // The default output on Windows is controlled by Windows itself.
     if (!device.isDefault) {
-      el.append(slider(device, 'volume', t('volume'), 100, '%'));
-      if (isWindows) el.append(slider(device, 'delay', t('delay'), 1000, t('ms')));
+      el.append(volumeRow(device), delayRow(device));
     }
     return el;
   }
@@ -224,8 +296,9 @@
         await (isWindows ? window.Mirror.stop() : window.api.stop());
         state.active = false;
       } else {
-        if (isWindows) await window.Mirror.start(chosen().filter((d) => !d.isDefault));
-        else await window.api.start(chosen().map((d) => d.id));
+        if (isWindows) await window.Mirror.start(chosen().filter((d) => !d.isDefault)
+          .map((d) => ({ ...d, delay: effectiveDelay(d.id) })));
+        else await window.api.start(chosen().map((d) => d.id), delaysFor(chosen()));
         state.active = true;
       }
       state.busy = false;

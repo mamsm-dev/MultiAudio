@@ -25,10 +25,10 @@ window.Mirror = (() => {
       const audioOnly = new MediaStream(stream.getAudioTracks());
       for (const { id, volume, delay, muted } of targets) {
         const context = new AudioContext({ latencyHint: 'interactive' });
-        const nodes = { context, delay: context.createDelay(1), gain: context.createGain(), volume, muted };
+        const nodes = { context, delay: context.createDelay(5), gain: context.createGain(), volume, muted };
         outputs.set(id, nodes);
         await context.setSinkId(id);
-        nodes.delay.delayTime.value = delay / 1000;
+        nodes.delay.delayTime.value = delay; // seconds
         nodes.gain.gain.value = muted ? 0 : volume / 100;
         context.createMediaStreamSource(audioOnly).connect(nodes.delay).connect(nodes.gain).connect(context.destination);
         await context.resume();
@@ -43,7 +43,7 @@ window.Mirror = (() => {
     const o = outputs.get(id);
     if (!o) return;
     if (key === 'delay') {
-      o.delay.delayTime.value = value / 1000;
+      o.delay.delayTime.value = value;
       return;
     }
     o[key] = value; // volume or muted

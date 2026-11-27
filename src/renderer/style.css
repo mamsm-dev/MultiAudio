@@ -45,7 +45,10 @@ main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8p
 .badge { font-size: 11px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--primary); color: var(--primary); }
 .slider { display: flex; align-items: center; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 12px; }
 .slider span:first-child { width: 70px; }
-.slider input { flex: 1; }
+.slider input[type="range"] { flex: 1; min-width: 0; }
+.slider input:disabled { opacity: .45; }
+.slider label { width: 70px; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.slider label input { margin: 0; }
 .slider output { width: 60px; text-align: left; }
 :root[dir="ltr"] .slider output { text-align: right; }
 .empty { margin: auto; text-align: center; color: var(--muted); max-width: 300px; }
@@ -65,7 +68,11 @@ header .icon { display: flex; align-items: center; justify-content: center; widt
 /* Light mode: white track with an accent border */
 :root[data-theme="light"] input[type="range"] { appearance: none; background: transparent; height: 18px; margin: 0; }
 :root[data-theme="light"] input[type="range"]::-webkit-slider-runnable-track {
-  height: 8px; background: #fff; border: 1px solid var(--primary); border-radius: 99px;
+  height: 8px; border: 1px solid var(--primary); border-radius: 99px;
+  background: linear-gradient(to right, var(--primary) var(--fill, 0%), #fff var(--fill, 0%));
+}
+:root[data-theme="light"][dir="rtl"] input[type="range"]::-webkit-slider-runnable-track {
+  background: linear-gradient(to left, var(--primary) var(--fill, 0%), #fff var(--fill, 0%));
 }
 :root[data-theme="light"] input[type="range"]::-webkit-slider-thumb {
   appearance: none; width: 16px; height: 16px; margin-top: -5px; border: 0; border-radius: 50%; background: var(--primary);

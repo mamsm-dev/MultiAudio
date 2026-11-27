@@ -1,7 +1,7 @@
 {
   "name": "multiaudio",
   "productName": "MultiAudio",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Play audio through several Bluetooth devices at once",
   "main": "src/main/main.js",
   "homepage": "https://github.com/mamsm-dev/multiaudio",
@@ -37,6 +37,7 @@
     },
     "pacman": {
       "depends": ["gtk3", "nss", "libxss", "libxtst", "libnotify", "xdg-utils", "alsa-lib", "libpulse"],
+      "fpm": ["--pacman-optional-depends=pipewire: per-device delay (pw-loopback)"],
       "artifactName": "${productName}-${version}-${arch}.pkg.tar.zst",
       "compression": "zstd"
     },
